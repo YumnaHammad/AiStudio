@@ -5,6 +5,7 @@ import {
   PrismaClient,
   Prisma,
   ProjectStatus,
+  TemplateCategory,
   VideoStatus,
   WorkflowStatus,
 } from '@acs/database';
@@ -34,13 +35,13 @@ function defaultSelections(templateKey: string): RenderVariationSelections {
 async function cinematicTemplateFilter(
   prisma: PrismaClient,
   videoStyle?: string | null,
-): Promise<{ key?: string; category?: string }> {
+): Promise<Prisma.TemplateWhereInput> {
   if (['DOCUMENTARY', 'STORYTELLING', 'MOTIVATIONAL'].includes(videoStyle ?? '')) {
     const docTemplate = await prisma.template.findFirst({
       where: { isActive: true, key: 'history-documentary' },
     });
     if (docTemplate) return { key: 'history-documentary' };
-    return { category: 'HISTORY' };
+    return { category: TemplateCategory.HISTORY };
   }
   return {};
 }
@@ -67,10 +68,11 @@ export async function enqueueProjectRender(
     );
   }
 
+  const templateFilter = await cinematicTemplateFilter(prisma, project.videoStyle);
   const template = await prisma.template.findFirst({
     where: {
       isActive: true,
-      ...(await cinematicTemplateFilter(prisma, project.videoStyle)),
+      ...templateFilter,
     },
     include: {
       versions: { where: { isActive: true }, orderBy: { version: 'desc' }, take: 1 },

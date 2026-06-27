@@ -5,7 +5,6 @@ import {
   WorkerCompleteJobPayload,
   WorkerKey,
   QueueName,
-  WORKER_PIPELINE_ORDER,
   resolveWorkerProvider,
   resolvePipelineOrder,
 } from '@acs/shared';

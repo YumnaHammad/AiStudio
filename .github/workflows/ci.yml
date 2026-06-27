@@ -39,6 +39,7 @@ jobs:
       - run: npm ci
 
       - run: npm run build --workspace=@acs/shared
+      - run: npm run generate --workspace=@acs/database
       - run: npm run build --workspace=@acs/database
       - run: npm run build --workspace=@acs/providers
       - run: npm run build --workspace=@acs/ai-workers
