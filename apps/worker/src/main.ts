@@ -5,19 +5,8 @@ import path from 'path';
 config({ path: path.resolve(__dirname, '../../../.env') });
 config();
 import { PrismaClient } from '@acs/database';
-import { ConnectionOptions } from 'bullmq';
+import { parseRedisConnection } from '@acs/shared';
 import { createAiWorkerProcessors, createOrchestratorCompleteProcessor } from './processors';
-
-function parseRedisConnection(): ConnectionOptions {
-  const url = process.env.REDIS_URL ?? 'redis://localhost:6379';
-  const parsed = new URL(url);
-  return {
-    host: parsed.hostname,
-    port: parseInt(parsed.port || '6379', 10),
-    password: parsed.password || undefined,
-    maxRetriesPerRequest: null,
-  };
-}
 
 async function main() {
   console.log('Starting AI Content Studio Worker...');

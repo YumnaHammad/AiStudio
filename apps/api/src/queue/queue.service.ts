@@ -1,7 +1,7 @@
 import { Injectable, OnModuleDestroy } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { Queue, QueueEvents, ConnectionOptions } from 'bullmq';
-import { QueueName } from '@acs/shared';
+import { Queue, QueueEvents } from 'bullmq';
+import { QueueName, parseRedisConnection, type RedisConnectionOptions } from '@acs/shared';
 
 const ALL_QUEUES: QueueName[] = Object.values(QueueName);
 
@@ -9,10 +9,10 @@ const ALL_QUEUES: QueueName[] = Object.values(QueueName);
 export class QueueService implements OnModuleDestroy {
   private readonly queues = new Map<string, Queue>();
   private readonly queueEvents = new Map<string, QueueEvents>();
-  private readonly connection: ConnectionOptions;
+  private readonly connection: RedisConnectionOptions;
 
   constructor(private readonly configService: ConfigService) {
-    this.connection = this.parseRedisConnection(
+    this.connection = parseRedisConnection(
       this.configService.get<string>('redis.url') ?? 'redis://localhost:6379',
     );
 
@@ -33,7 +33,7 @@ export class QueueService implements OnModuleDestroy {
     }
   }
 
-  getConnection(): ConnectionOptions {
+  getConnection(): RedisConnectionOptions {
     return this.connection;
   }
 
@@ -81,16 +81,5 @@ export class QueueService implements OnModuleDestroy {
       ...[...this.queues.values()].map((q) => q.close()),
       ...[...this.queueEvents.values()].map((e) => e.close()),
     ]);
-  }
-
-  private parseRedisConnection(url: string): ConnectionOptions {
-    const parsed = new URL(url);
-    return {
-      host: parsed.hostname,
-      port: parseInt(parsed.port || '6379', 10),
-      password: parsed.password || undefined,
-      username: parsed.username || undefined,
-      maxRetriesPerRequest: null,
-    };
   }
 }

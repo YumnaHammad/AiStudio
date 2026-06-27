@@ -10,6 +10,7 @@ import { renderMedia, selectComposition } from '@remotion/renderer';
 import {
   QueueName,
   R2_PATH_PREFIX,
+  parseRedisConnection,
   resolveLocalMediaPath,
   localMediaExists,
   saveLocalMedia,
@@ -20,17 +21,6 @@ import { execSync } from 'child_process';
 import fs from 'fs';
 import os from 'os';
 import { localMediaHttpUrl, startLocalMediaServer } from './local-media-server';
-
-function parseRedisConnection(): ConnectionOptions {
-  const url = process.env.REDIS_URL ?? 'redis://localhost:6379';
-  const parsed = new URL(url);
-  return {
-    host: parsed.hostname,
-    port: parseInt(parsed.port || '6379', 10),
-    password: parsed.password || undefined,
-    maxRetriesPerRequest: null,
-  };
-}
 
 async function renderVideo(
   prisma: PrismaClient,
