@@ -92,7 +92,7 @@ try {
 }
 
 if (-not (Test-Path $EnvFile)) {
-  Write-Warn ".env not found — running npm run setup"
+  Write-Warn '.env not found - running npm run setup'
   Push-Location $Root; npm run setup; Pop-Location
 }
 
@@ -222,6 +222,6 @@ Write-Host "  Frontend:  $webUrl" -ForegroundColor White
 Write-Host "  API:       $apiUrl/api/v1" -ForegroundColor White
 Write-Host "  Health:    $apiUrl/api/v1/health" -ForegroundColor White
 Write-Host ""
-Write-Host "  Note: Video generation needs worker + renderer" -ForegroundColor Yellow
+Write-Host '  Note: Video generation needs worker and renderer' -ForegroundColor Yellow
 Write-Host '  on Render/Railway (not Vercel). Dashboard and login work now.' -ForegroundColor Yellow
 Write-Host ""

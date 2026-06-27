@@ -10,10 +10,16 @@ build/
 out/
 .turbo/
 
-# Environment
+# Environment (never commit secrets)
 .env
+.env.*
+.env.example
 .env.local
 .env.*.local
+**/.env
+**/.env.example
+**/.env.local
+**/.env.local.example
 packages/database/.env
 
 # Vercel
