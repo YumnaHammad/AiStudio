@@ -99,13 +99,13 @@ if (-not (Test-Path $EnvFile)) {
 $envVars = Read-DotEnv $EnvFile
 
 # --- Cloud database (required for Vercel) ---
-Write-Step 2 "Production database & Redis"
+Write-Step 2 'Production database and Redis'
 
 if (-not $DatabaseUrl) {
   $current = $envVars["DATABASE_URL"]
   if ($current -match 'localhost|127\.0\.0\.1') {
     Write-Warn "Local DATABASE_URL detected. Vercel needs a cloud Postgres URL."
-    Write-Host "  Create free DB at https://neon.tech → copy connection string" -ForegroundColor Gray
+    Write-Host '  Create free DB at https://neon.tech - copy connection string' -ForegroundColor Gray
     $DatabaseUrl = Read-Host "  Paste Neon DATABASE_URL"
   } else {
     $DatabaseUrl = $current
@@ -116,7 +116,7 @@ if (-not $RedisUrl) {
   $current = $envVars["REDIS_URL"]
   if ($current -match 'localhost|127\.0\.0\.1|^redis://(?!.*@)') {
     Write-Warn "Local REDIS_URL detected. Vercel needs Upstash Redis."
-    Write-Host "  Create free Redis at https://upstash.com → copy rediss:// URL" -ForegroundColor Gray
+    Write-Host '  Create free Redis at https://upstash.com - copy rediss:// URL' -ForegroundColor Gray
     $RedisUrl = Read-Host "  Paste Upstash REDIS_URL"
   } else {
     $RedisUrl = $current
@@ -160,7 +160,7 @@ if (-not $WebOnly) {
     Set-VercelEnvVar $ApiDir "COST_SAVER_AUTO_APPROVE" $(if ($envVars["COST_SAVER_AUTO_APPROVE"]) { $envVars["COST_SAVER_AUTO_APPROVE"] } else { "true" })
   }
 
-  Write-Host "  Building & deploying API (may take 2-3 min)..." -ForegroundColor Gray
+  Write-Host '  Building and deploying API (may take 2-3 min)...' -ForegroundColor Gray
   $apiUrl = Get-DeployUrl $ApiDir
   Write-Ok "API live at $apiUrl"
 
@@ -190,13 +190,13 @@ Ensure-VercelLinked $WebDir "acs-web or ai-studio-web"
 $apiBase = "$apiUrl/api/v1"
 Set-VercelEnvVar $WebDir "NEXT_PUBLIC_API_URL" $apiBase
 
-Write-Host "  Building & deploying frontend..." -ForegroundColor Gray
+Write-Host '  Building and deploying frontend...' -ForegroundColor Gray
 $webUrl = Get-DeployUrl $WebDir
 Write-Ok "Web live at $webUrl"
 
 # --- Wire CORS / APP_URL on API ---
 if (-not $WebOnly -and $apiUrl) {
-  Write-Step 5 "Connecting frontend ↔ API"
+  Write-Step 5 'Connecting frontend to API'
   Set-VercelEnvVar $ApiDir "APP_URL" $webUrl
   Set-VercelEnvVar $ApiDir "CORS_ORIGINS" $webUrl
   Write-Host "  Redeploying API with CORS..." -ForegroundColor Gray
@@ -223,5 +223,5 @@ Write-Host "  API:       $apiUrl/api/v1" -ForegroundColor White
 Write-Host "  Health:    $apiUrl/api/v1/health" -ForegroundColor White
 Write-Host ""
 Write-Host "  Note: Video generation needs worker + renderer" -ForegroundColor Yellow
-Write-Host "  on Render/Railway (not Vercel). Dashboard & login work now." -ForegroundColor Yellow
+Write-Host '  on Render/Railway (not Vercel). Dashboard and login work now.' -ForegroundColor Yellow
 Write-Host ""
