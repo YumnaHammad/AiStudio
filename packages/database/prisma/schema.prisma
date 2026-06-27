@@ -1,0 +1,915 @@
+// AI Content Studio — PostgreSQL schema
+// All media files live in R2; only paths are stored here.
+// Artifacts are versioned and never overwritten.
+
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "rhel-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Enums ───────────────────────────────────────────────────────
+
+enum UserRole {
+  OWNER
+  ADMIN
+  EDITOR
+  VIEWER
+}
+
+enum ProjectStatus {
+  DRAFT
+  RUNNING
+  AWAITING_APPROVAL
+  RENDERING
+  PUBLISHING
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
+enum WorkflowStatus {
+  CREATED
+  RUNNING
+  AWAITING_WORKER
+  AWAITING_APPROVAL
+  RENDERING
+  PUBLISHING
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
+enum WorkerStatus {
+  PENDING
+  QUEUED
+  RUNNING
+  COMPLETED
+  FAILED
+  CANCELLED
+  SKIPPED
+}
+
+enum VideoStatus {
+  PENDING
+  QUEUED
+  RENDERING
+  OPTIMIZING
+  COMPLETED
+  FAILED
+}
+
+enum PublishStatus {
+  PENDING
+  QUEUED
+  UPLOADING
+  PUBLISHED
+  FAILED
+}
+
+enum AssetType {
+  IMAGE
+  VIDEO
+  AUDIO
+  AI_IMAGE
+}
+
+enum AssetSource {
+  PEXELS
+  PIXABAY
+  OPENAI
+  UPLOAD
+  GENERATED
+}
+
+enum TemplateCategory {
+  NEWS
+  FINANCE
+  EDUCATION
+  HISTORY
+  TRAVEL
+  PODCAST
+  MOTIVATIONAL
+  STORYTELLING
+}
+
+enum LogLevel {
+  DEBUG
+  INFO
+  WARN
+  ERROR
+}
+
+enum NotificationType {
+  WORKFLOW_STARTED
+  WORKFLOW_COMPLETED
+  WORKFLOW_FAILED
+  WORKER_COMPLETED
+  WORKER_FAILED
+  RENDER_COMPLETED
+  RENDER_FAILED
+  PUBLISH_COMPLETED
+  PUBLISH_FAILED
+  APPROVAL_REQUIRED
+  SYSTEM
+}
+
+enum AuditAction {
+  USER_LOGIN
+  USER_LOGOUT
+  USER_CREATED
+  USER_UPDATED
+  PROJECT_CREATED
+  PROJECT_APPROVED
+  PROJECT_CANCELLED
+  WORKFLOW_RESUMED
+  WORKER_RETRIED
+  PROMPT_CREATED
+  PROMPT_VERSION_CREATED
+  PROMPT_ACTIVATED
+  PROMPT_ROLLBACK
+  API_KEY_CREATED
+  API_KEY_DELETED
+  PUBLISH_INITIATED
+  ROLE_CHANGED
+}
+
+enum VideoPlatform {
+  YOUTUBE
+  TIKTOK
+  INSTAGRAM
+  FACEBOOK
+  LINKEDIN
+  PINTEREST
+  X
+  GENERIC
+}
+
+enum VideoStyle {
+  DOCUMENTARY
+  NEWS
+  EDUCATIONAL
+  STORYTELLING
+  MOTIVATIONAL
+  PODCAST
+}
+
+enum SocialPlatform {
+  YOUTUBE
+  FACEBOOK
+  INSTAGRAM
+  TIKTOK
+  LINKEDIN
+  PINTEREST
+  X
+}
+
+enum PlatformConnectionType {
+  YOUTUBE
+  FACEBOOK
+  INSTAGRAM
+  TIKTOK
+  LINKEDIN
+  PINTEREST
+  X
+}
+
+enum SubtitleFormat {
+  SRT
+  VTT
+  ASS
+}
+
+// ─── Tenancy & Identity ──────────────────────────────────────────
+
+model Organization {
+  id               String    @id @default(uuid()) @db.Uuid
+  name             String    @db.VarChar(255)
+  slug             String    @unique @db.VarChar(100)
+  plan             String    @default("free") @db.VarChar(50)
+  stripeCustomerId String?   @map("stripe_customer_id") @db.VarChar(255)
+  settings         Json      @default("{}")
+  createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt        DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+  deletedAt        DateTime? @map("deleted_at") @db.Timestamptz
+
+  workspaces Workspace[]
+
+  @@map("organizations")
+}
+
+model Workspace {
+  id             String    @id @default(uuid()) @db.Uuid
+  organizationId String    @map("organization_id") @db.Uuid
+  name           String    @db.VarChar(255)
+  slug           String    @db.VarChar(100)
+  settings       Json      @default("{}")
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+  deletedAt      DateTime? @map("deleted_at") @db.Timestamptz
+
+  organization        Organization         @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  members             WorkspaceMember[]
+  campaigns           Campaign[]
+  apiKeys             ApiKey[]
+  platformConnections PlatformConnection[]
+  auditLogs           AuditLog[]
+  costLedger          CostLedgerEntry[]
+
+  @@unique([organizationId, slug])
+  @@index([organizationId])
+  @@map("workspaces")
+}
+
+model User {
+  id           String    @id @default(uuid()) @db.Uuid
+  email        String    @unique @db.VarChar(255)
+  passwordHash String    @map("password_hash") @db.VarChar(255)
+  firstName    String?   @map("first_name") @db.VarChar(100)
+  lastName     String?   @map("last_name") @db.VarChar(100)
+  isActive     Boolean   @default(true) @map("is_active")
+  lastLoginAt  DateTime? @map("last_login_at") @db.Timestamptz
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt    DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+  deletedAt    DateTime? @map("deleted_at") @db.Timestamptz
+
+  memberships   WorkspaceMember[]
+  refreshTokens RefreshToken[]
+  notifications Notification[]
+  auditLogs     AuditLog[]
+  promptVersions PromptVersion[] @relation("PromptVersionCreator")
+
+  @@map("users")
+}
+
+model WorkspaceMember {
+  id          String   @id @default(uuid()) @db.Uuid
+  workspaceId String   @map("workspace_id") @db.Uuid
+  userId      String   @map("user_id") @db.Uuid
+  role        UserRole @default(EDITOR)
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, userId])
+  @@index([userId])
+  @@map("workspace_members")
+}
+
+model RefreshToken {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  tokenHash String   @map("token_hash") @db.VarChar(255)
+  expiresAt DateTime @map("expires_at") @db.Timestamptz
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  revokedAt DateTime? @map("revoked_at") @db.Timestamptz
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([tokenHash])
+  @@map("refresh_tokens")
+}
+
+// ─── Content Hierarchy ───────────────────────────────────────────
+
+model Campaign {
+  id          String    @id @default(uuid()) @db.Uuid
+  workspaceId String    @map("workspace_id") @db.Uuid
+  name        String    @db.VarChar(255)
+  description String?   @db.Text
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt   DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+  deletedAt   DateTime? @map("deleted_at") @db.Timestamptz
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  projects  Project[]
+
+  @@index([workspaceId, createdAt(sort: Desc)])
+  @@map("campaigns")
+}
+
+model Project {
+  id             String        @id @default(uuid()) @db.Uuid
+  campaignId     String        @map("campaign_id") @db.Uuid
+  topic          String        @db.VarChar(500)
+  language       String        @default("en") @db.VarChar(10)
+  videoStyle     VideoStyle?   @map("video_style")
+  platform       VideoPlatform @default(GENERIC)
+  durationTarget Int?          @map("duration_target")
+  status         ProjectStatus @default(DRAFT)
+  createdAt      DateTime      @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt      DateTime      @updatedAt @map("updated_at") @db.Timestamptz
+  deletedAt      DateTime?     @map("deleted_at") @db.Timestamptz
+
+  campaign           Campaign            @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  settings           ProjectSettings?
+  workflowExecutions WorkflowExecution[]
+  researchArtifacts  ResearchArtifact[]
+  scriptArtifacts    ScriptArtifact[]
+  translationArtifacts TranslationArtifact[]
+  voiceArtifacts     VoiceArtifact[]
+  scenePlans         ScenePlan[]
+  assets             Asset[]
+  thumbnailArtifacts ThumbnailArtifact[]
+  seoMetadata        SeoMetadata[]
+  podcastArtifacts   PodcastArtifact[]
+  socialPosts        SocialPost[]
+  videos             Video[]
+  costLedger         CostLedgerEntry[]
+
+  @@index([campaignId, status, createdAt(sort: Desc)])
+  @@map("projects")
+}
+
+model ProjectSettings {
+  id               String  @id @default(uuid()) @db.Uuid
+  projectId        String  @unique @map("project_id") @db.Uuid
+  autoApprove      Boolean @default(false) @map("auto_approve")
+  providerOverrides Json   @default("{}") @map("provider_overrides")
+  metadata         Json    @default("{}")
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@map("project_settings")
+}
+
+// ─── Workflow & Worker Execution ─────────────────────────────────
+
+model WorkflowExecution {
+  id            String         @id @default(uuid()) @db.Uuid
+  projectId     String         @map("project_id") @db.Uuid
+  status        WorkflowStatus @default(CREATED)
+  currentStep   String?        @map("current_step") @db.VarChar(50)
+  correlationId String         @map("correlation_id") @db.Uuid
+  startedAt     DateTime?      @map("started_at") @db.Timestamptz
+  completedAt   DateTime?      @map("completed_at") @db.Timestamptz
+  errorMessage  String?        @map("error_message") @db.Text
+  createdAt     DateTime       @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt     DateTime       @updatedAt @map("updated_at") @db.Timestamptz
+
+  project          Project           @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  workerExecutions WorkerExecution[]
+
+  @@index([projectId, createdAt(sort: Desc)])
+  @@index([status, createdAt])
+  @@index([correlationId])
+  @@map("workflow_executions")
+}
+
+model WorkerExecution {
+  id                  String       @id @default(uuid()) @db.Uuid
+  workflowExecutionId String       @map("workflow_execution_id") @db.Uuid
+  workerKey           String       @map("worker_key") @db.VarChar(50)
+  status              WorkerStatus @default(PENDING)
+  provider            String?      @db.VarChar(50)
+  model               String?      @db.VarChar(100)
+  promptVersionId     String?      @map("prompt_version_id") @db.Uuid
+  inputRef            Json?        @map("input_ref")
+  outputRef           Json?        @map("output_ref")
+  costUsd             Decimal      @default(0) @map("cost_usd") @db.Decimal(12, 6)
+  durationMs          Int?         @map("duration_ms")
+  retryCount          Int          @default(0) @map("retry_count")
+  maxRetries          Int          @default(3) @map("max_retries")
+  errorMessage        String?      @map("error_message") @db.Text
+  errorCode           String?      @map("error_code") @db.VarChar(100)
+  bullJobId           String?      @map("bull_job_id") @db.VarChar(100)
+  startedAt           DateTime?    @map("started_at") @db.Timestamptz
+  completedAt         DateTime?    @map("completed_at") @db.Timestamptz
+  createdAt           DateTime     @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt           DateTime     @updatedAt @map("updated_at") @db.Timestamptz
+
+  workflowExecution WorkflowExecution    @relation(fields: [workflowExecutionId], references: [id], onDelete: Cascade)
+  promptVersion     PromptVersion?       @relation(fields: [promptVersionId], references: [id], onDelete: SetNull)
+  logs              WorkerExecutionLog[]
+  costLedger        CostLedgerEntry[]
+
+  researchArtifacts  ResearchArtifact[]
+  scriptArtifacts    ScriptArtifact[]
+  translationArtifacts TranslationArtifact[]
+  voiceArtifacts     VoiceArtifact[]
+  scenePlans         ScenePlan[]
+  thumbnailArtifacts ThumbnailArtifact[]
+  seoMetadata        SeoMetadata[]
+  podcastArtifacts   PodcastArtifact[]
+  socialPosts        SocialPost[]
+
+  @@index([workflowExecutionId, workerKey])
+  @@index([status, createdAt])
+  @@index([workerKey, status])
+  @@map("worker_executions")
+}
+
+model WorkerExecutionLog {
+  id                String   @id @default(uuid()) @db.Uuid
+  workerExecutionId String   @map("worker_execution_id") @db.Uuid
+  level             LogLevel @default(INFO)
+  message           String   @db.Text
+  metadata          Json?
+  timestamp         DateTime @default(now()) @db.Timestamptz
+
+  workerExecution WorkerExecution @relation(fields: [workerExecutionId], references: [id], onDelete: Cascade)
+
+  @@index([workerExecutionId, timestamp])
+  @@map("worker_execution_logs")
+}
+
+// ─── Versioned Artifacts (never overwrite) ───────────────────────
+
+model ResearchArtifact {
+  id                String   @id @default(uuid()) @db.Uuid
+  projectId         String   @map("project_id") @db.Uuid
+  version           Int
+  content           Json
+  sourceCitations   Json     @default("[]") @map("source_citations")
+  summary           String?  @db.Text
+  r2Path            String?  @map("r2_path") @db.VarChar(500)
+  workerExecutionId String?  @map("worker_execution_id") @db.Uuid
+  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  project         Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  workerExecution WorkerExecution? @relation(fields: [workerExecutionId], references: [id], onDelete: SetNull)
+
+  @@unique([projectId, version])
+  @@index([projectId, version(sort: Desc)])
+  @@map("research_artifacts")
+}
+
+model ScriptArtifact {
+  id                String   @id @default(uuid()) @db.Uuid
+  projectId         String   @map("project_id") @db.Uuid
+  version           Int
+  content           String   @db.Text
+  wordCount         Int      @default(0) @map("word_count")
+  sections          Json     @default("[]")
+  workerExecutionId String?  @map("worker_execution_id") @db.Uuid
+  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  project         Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  workerExecution WorkerExecution? @relation(fields: [workerExecutionId], references: [id], onDelete: SetNull)
+  translations    TranslationArtifact[]
+
+  @@unique([projectId, version])
+  @@index([projectId, version(sort: Desc)])
+  @@map("script_artifacts")
+}
+
+model TranslationArtifact {
+  id                String   @id @default(uuid()) @db.Uuid
+  projectId         String   @map("project_id") @db.Uuid
+  scriptArtifactId  String?  @map("script_artifact_id") @db.Uuid
+  version           Int
+  language          String   @db.VarChar(10)
+  content           String   @db.Text
+  workerExecutionId String?  @map("worker_execution_id") @db.Uuid
+  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  project         Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  scriptArtifact  ScriptArtifact?  @relation(fields: [scriptArtifactId], references: [id], onDelete: SetNull)
+  workerExecution WorkerExecution? @relation(fields: [workerExecutionId], references: [id], onDelete: SetNull)
+
+  @@unique([projectId, language, version])
+  @@index([projectId, version(sort: Desc)])
+  @@map("translation_artifacts")
+}
+
+model VoiceArtifact {
+  id                String   @id @default(uuid()) @db.Uuid
+  projectId         String   @map("project_id") @db.Uuid
+  version           Int
+  r2Path            String   @map("r2_path") @db.VarChar(500)
+  mimeType          String   @default("audio/mpeg") @map("mime_type") @db.VarChar(100)
+  sizeBytes         BigInt?  @map("size_bytes")
+  durationMs        Int      @map("duration_ms")
+  provider          String   @db.VarChar(50)
+  voiceId           String?  @map("voice_id") @db.VarChar(100)
+  wordTimings       Json     @default("[]") @map("word_timings")
+  workerExecutionId String?  @map("worker_execution_id") @db.Uuid
+  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  project         Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  workerExecution WorkerExecution? @relation(fields: [workerExecutionId], references: [id], onDelete: SetNull)
+
+  @@unique([projectId, version])
+  @@index([projectId, version(sort: Desc)])
+  @@map("voice_artifacts")
+}
+
+model ScenePlan {
+  id                String   @id @default(uuid()) @db.Uuid
+  projectId         String   @map("project_id") @db.Uuid
+  version           Int
+  totalDurationMs   Int?     @map("total_duration_ms")
+  workerExecutionId String?  @map("worker_execution_id") @db.Uuid
+  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  project         Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  workerExecution WorkerExecution? @relation(fields: [workerExecutionId], references: [id], onDelete: SetNull)
+  scenes          Scene[]
+
+  @@unique([projectId, version])
+  @@index([projectId, version(sort: Desc)])
+  @@map("scene_plans")
+}
+
+model Scene {
+  id           String @id @default(uuid()) @db.Uuid
+  scenePlanId  String @map("scene_plan_id") @db.Uuid
+  orderIndex   Int    @map("order_index")
+  narration    String @db.Text
+  durationMs   Int    @map("duration_ms")
+  subtitle     Json   @default("{}")
+  animation    String? @db.VarChar(100)
+  transition   String? @db.VarChar(100)
+  layout       String? @db.VarChar(100)
+  cameraEffect String? @map("camera_effect") @db.VarChar(100)
+  background   Json   @default("{}")
+  assetId      String? @map("asset_id") @db.Uuid
+  metadata     Json   @default("{}")
+
+  scenePlan ScenePlan @relation(fields: [scenePlanId], references: [id], onDelete: Cascade)
+  asset     Asset?    @relation(fields: [assetId], references: [id], onDelete: SetNull)
+
+  @@unique([scenePlanId, orderIndex])
+  @@index([scenePlanId])
+  @@map("scenes")
+}
+
+model Asset {
+  id           String      @id @default(uuid()) @db.Uuid
+  projectId    String      @map("project_id") @db.Uuid
+  type         AssetType
+  source       AssetSource
+  r2Path       String?     @map("r2_path") @db.VarChar(500)
+  externalUrl  String?     @map("external_url") @db.VarChar(1000)
+  externalId   String?     @map("external_id") @db.VarChar(255)
+  mimeType     String?     @map("mime_type") @db.VarChar(100)
+  sizeBytes    BigInt?     @map("size_bytes")
+  width        Int?
+  height       Int?
+  durationMs   Int?        @map("duration_ms")
+  license      String?     @db.VarChar(255)
+  attribution  String?     @db.Text
+  metadata     Json        @default("{}")
+  createdAt    DateTime    @default(now()) @map("created_at") @db.Timestamptz
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  scenes  Scene[]
+
+  @@index([projectId, type])
+  @@map("assets")
+}
+
+model ThumbnailArtifact {
+  id                String   @id @default(uuid()) @db.Uuid
+  projectId         String   @map("project_id") @db.Uuid
+  version           Int
+  r2Path            String   @map("r2_path") @db.VarChar(500)
+  mimeType          String   @default("image/png") @map("mime_type") @db.VarChar(100)
+  sizeBytes         BigInt?  @map("size_bytes")
+  width             Int?
+  height            Int?
+  promptUsed        String?  @map("prompt_used") @db.Text
+  workerExecutionId String?  @map("worker_execution_id") @db.Uuid
+  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  project         Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  workerExecution WorkerExecution? @relation(fields: [workerExecutionId], references: [id], onDelete: SetNull)
+
+  @@unique([projectId, version])
+  @@index([projectId, version(sort: Desc)])
+  @@map("thumbnail_artifacts")
+}
+
+model SeoMetadata {
+  id                String   @id @default(uuid()) @db.Uuid
+  projectId         String   @map("project_id") @db.Uuid
+  version           Int
+  title             String   @db.VarChar(255)
+  description       String   @db.Text
+  tags              Json     @default("[]")
+  chapters          Json     @default("[]")
+  keywords          Json     @default("[]")
+  workerExecutionId String?  @map("worker_execution_id") @db.Uuid
+  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  project         Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  workerExecution WorkerExecution? @relation(fields: [workerExecutionId], references: [id], onDelete: SetNull)
+
+  @@unique([projectId, version])
+  @@index([projectId, version(sort: Desc)])
+  @@map("seo_metadata")
+}
+
+model PodcastArtifact {
+  id                String   @id @default(uuid()) @db.Uuid
+  projectId         String   @map("project_id") @db.Uuid
+  version           Int
+  r2Path            String   @map("r2_path") @db.VarChar(500)
+  mimeType          String   @default("audio/mpeg") @map("mime_type") @db.VarChar(100)
+  sizeBytes         BigInt?  @map("size_bytes")
+  durationMs        Int?     @map("duration_ms")
+  showNotes         String?  @map("show_notes") @db.Text
+  workerExecutionId String?  @map("worker_execution_id") @db.Uuid
+  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  project         Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  workerExecution WorkerExecution? @relation(fields: [workerExecutionId], references: [id], onDelete: SetNull)
+
+  @@unique([projectId, version])
+  @@index([projectId, version(sort: Desc)])
+  @@map("podcast_artifacts")
+}
+
+model SocialPost {
+  id                String         @id @default(uuid()) @db.Uuid
+  projectId         String         @map("project_id") @db.Uuid
+  platform          SocialPlatform
+  version           Int
+  content           String         @db.Text
+  hashtags          Json           @default("[]")
+  mediaR2Path       String?        @map("media_r2_path") @db.VarChar(500)
+  workerExecutionId String?        @map("worker_execution_id") @db.Uuid
+  createdAt         DateTime       @default(now()) @map("created_at") @db.Timestamptz
+
+  project         Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  workerExecution WorkerExecution? @relation(fields: [workerExecutionId], references: [id], onDelete: SetNull)
+
+  @@unique([projectId, platform, version])
+  @@index([projectId])
+  @@map("social_posts")
+}
+
+// ─── Templates & Rendering ───────────────────────────────────────
+
+model Template {
+  id          String           @id @default(uuid()) @db.Uuid
+  key         String           @unique @db.VarChar(100)
+  name        String           @db.VarChar(255)
+  category    TemplateCategory
+  description String?          @db.Text
+  isActive    Boolean          @default(true) @map("is_active")
+  createdAt   DateTime         @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt   DateTime         @updatedAt @map("updated_at") @db.Timestamptz
+
+  versions TemplateVersion[]
+
+  @@map("templates")
+}
+
+model TemplateVersion {
+  id         String   @id @default(uuid()) @db.Uuid
+  templateId String   @map("template_id") @db.Uuid
+  version    Int
+  config     Json
+  isActive   Boolean  @default(false) @map("is_active")
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  template      Template       @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  renderConfigs RenderConfig[]
+  videos        Video[]
+
+  @@unique([templateId, version])
+  @@index([templateId, isActive])
+  @@map("template_versions")
+}
+
+model Video {
+  id                String      @id @default(uuid()) @db.Uuid
+  projectId         String      @map("project_id") @db.Uuid
+  version           Int
+  status            VideoStatus @default(PENDING)
+  templateVersionId String?     @map("template_version_id") @db.Uuid
+  r2PathRaw         String?     @map("r2_path_raw") @db.VarChar(500)
+  r2PathOptimized   String?     @map("r2_path_optimized") @db.VarChar(500)
+  mimeType          String      @default("video/mp4") @map("mime_type") @db.VarChar(100)
+  sizeBytes         BigInt?     @map("size_bytes")
+  durationMs        Int?        @map("duration_ms")
+  width             Int?
+  height            Int?
+  renderJobId       String?     @map("render_job_id") @db.VarChar(100)
+  errorMessage      String?     @map("error_message") @db.Text
+  createdAt         DateTime    @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt         DateTime    @updatedAt @map("updated_at") @db.Timestamptz
+
+  project         Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  templateVersion TemplateVersion? @relation(fields: [templateVersionId], references: [id], onDelete: SetNull)
+  renderConfig    RenderConfig?
+  subtitles       Subtitle[]
+  publishRecords  PublishRecord[]
+
+  @@unique([projectId, version])
+  @@index([projectId, status])
+  @@map("videos")
+}
+
+model RenderConfig {
+  id                String   @id @default(uuid()) @db.Uuid
+  videoId           String   @unique @map("video_id") @db.Uuid
+  templateVersionId String   @map("template_version_id") @db.Uuid
+  variationSeed     String   @map("variation_seed") @db.VarChar(64)
+  selectionsHash    String   @map("selections_hash") @db.VarChar(64)
+  selections        Json
+  timelineJson      Json?    @map("timeline_json")
+  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  video           Video           @relation(fields: [videoId], references: [id], onDelete: Cascade)
+  templateVersion TemplateVersion @relation(fields: [templateVersionId], references: [id], onDelete: Restrict)
+
+  @@index([selectionsHash])
+  @@map("render_configs")
+}
+
+model Subtitle {
+  id        String         @id @default(uuid()) @db.Uuid
+  videoId   String         @map("video_id") @db.Uuid
+  format    SubtitleFormat
+  language  String         @default("en") @db.VarChar(10)
+  r2Path    String         @map("r2_path") @db.VarChar(500)
+  cues      Json           @default("[]")
+  createdAt DateTime       @default(now()) @map("created_at") @db.Timestamptz
+
+  video Video @relation(fields: [videoId], references: [id], onDelete: Cascade)
+
+  @@index([videoId])
+  @@map("subtitles")
+}
+
+// ─── Publishing & Analytics ──────────────────────────────────────
+
+model PlatformConnection {
+  id              String                 @id @default(uuid()) @db.Uuid
+  workspaceId     String                 @map("workspace_id") @db.Uuid
+  platform        PlatformConnectionType
+  accountName     String?                @map("account_name") @db.VarChar(255)
+  encryptedTokens String                 @map("encrypted_tokens") @db.Text
+  expiresAt       DateTime?              @map("expires_at") @db.Timestamptz
+  metadata        Json                   @default("{}")
+  isActive        Boolean                @default(true) @map("is_active")
+  createdAt       DateTime               @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt       DateTime               @updatedAt @map("updated_at") @db.Timestamptz
+
+  workspace      Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  publishRecords PublishRecord[]
+
+  @@unique([workspaceId, platform])
+  @@map("platform_connections")
+}
+
+model PublishRecord {
+  id                   String        @id @default(uuid()) @db.Uuid
+  videoId              String        @map("video_id") @db.Uuid
+  platformConnectionId String        @map("platform_connection_id") @db.Uuid
+  status               PublishStatus @default(PENDING)
+  platformVideoId      String?       @map("platform_video_id") @db.VarChar(255)
+  platformUrl          String?       @map("platform_url") @db.VarChar(1000)
+  title                String?       @db.VarChar(255)
+  description          String?       @db.Text
+  errorMessage         String?       @map("error_message") @db.Text
+  publishedAt          DateTime?     @map("published_at") @db.Timestamptz
+  createdAt            DateTime      @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt            DateTime      @updatedAt @map("updated_at") @db.Timestamptz
+
+  video              Video              @relation(fields: [videoId], references: [id], onDelete: Cascade)
+  platformConnection PlatformConnection @relation(fields: [platformConnectionId], references: [id], onDelete: Restrict)
+  analyticsSnapshots AnalyticsSnapshot[]
+
+  @@index([videoId])
+  @@index([status])
+  @@map("publish_records")
+}
+
+model AnalyticsSnapshot {
+  id              String   @id @default(uuid()) @db.Uuid
+  publishRecordId String   @map("publish_record_id") @db.Uuid
+  capturedAt      DateTime @map("captured_at") @db.Timestamptz
+  views           BigInt   @default(0)
+  likes           BigInt   @default(0)
+  comments        BigInt   @default(0)
+  shares          BigInt   @default(0)
+  watchTimeMs     BigInt   @default(0) @map("watch_time_ms")
+  rawData         Json     @default("{}") @map("raw_data")
+
+  publishRecord PublishRecord @relation(fields: [publishRecordId], references: [id], onDelete: Cascade)
+
+  @@index([publishRecordId, capturedAt(sort: Desc)])
+  @@map("analytics_snapshots")
+}
+
+// ─── Prompt Library ──────────────────────────────────────────────
+
+model Prompt {
+  id          String   @id @default(uuid()) @db.Uuid
+  workerKey   String   @map("worker_key") @db.VarChar(50)
+  purpose     String   @db.VarChar(255)
+  description String?  @db.Text
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  versions PromptVersion[]
+
+  @@index([workerKey])
+  @@map("prompts")
+}
+
+model PromptVersion {
+  id        String   @id @default(uuid()) @db.Uuid
+  promptId  String   @map("prompt_id") @db.Uuid
+  version   Int
+  content   String   @db.Text
+  variables Json     @default("[]")
+  isActive  Boolean  @default(false) @map("is_active")
+  createdBy String?  @map("created_by") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  prompt            Prompt            @relation(fields: [promptId], references: [id], onDelete: Cascade)
+  creator           User?             @relation("PromptVersionCreator", fields: [createdBy], references: [id], onDelete: SetNull)
+  workerExecutions  WorkerExecution[]
+
+  @@unique([promptId, version])
+  @@index([promptId, isActive])
+  @@map("prompt_versions")
+}
+
+// ─── System Tables ───────────────────────────────────────────────
+
+model ApiKey {
+  id           String   @id @default(uuid()) @db.Uuid
+  workspaceId  String   @map("workspace_id") @db.Uuid
+  provider     String   @db.VarChar(50)
+  label        String   @db.VarChar(255)
+  encryptedKey String   @map("encrypted_key") @db.Text
+  isActive     Boolean  @default(true) @map("is_active")
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, provider])
+  @@map("api_keys")
+}
+
+model AuditLog {
+  id          String      @id @default(uuid()) @db.Uuid
+  workspaceId String?     @map("workspace_id") @db.Uuid
+  userId      String?     @map("user_id") @db.Uuid
+  action      AuditAction
+  resource    String      @db.VarChar(100)
+  resourceId  String?     @map("resource_id") @db.Uuid
+  metadata    Json        @default("{}")
+  ipAddress   String?     @map("ip_address") @db.VarChar(45)
+  userAgent   String?     @map("user_agent") @db.VarChar(500)
+  timestamp   DateTime    @default(now()) @db.Timestamptz
+
+  workspace Workspace? @relation(fields: [workspaceId], references: [id], onDelete: SetNull)
+  user      User?      @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([workspaceId, timestamp(sort: Desc)])
+  @@index([userId, timestamp(sort: Desc)])
+  @@index([action, timestamp(sort: Desc)])
+  @@map("audit_logs")
+}
+
+model Notification {
+  id        String           @id @default(uuid()) @db.Uuid
+  userId    String           @map("user_id") @db.Uuid
+  type      NotificationType
+  title     String           @db.VarChar(255)
+  payload   Json             @default("{}")
+  readAt    DateTime?        @map("read_at") @db.Timestamptz
+  createdAt DateTime         @default(now()) @map("created_at") @db.Timestamptz
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, readAt, createdAt(sort: Desc)])
+  @@map("notifications")
+}
+
+model CostLedgerEntry {
+  id                String   @id @default(uuid()) @db.Uuid
+  workspaceId       String   @map("workspace_id") @db.Uuid
+  projectId         String?  @map("project_id") @db.Uuid
+  workerExecutionId String?  @map("worker_execution_id") @db.Uuid
+  provider          String   @db.VarChar(50)
+  model             String?  @db.VarChar(100)
+  operation         String   @db.VarChar(100)
+  units             Decimal  @default(0) @db.Decimal(18, 6)
+  unitType          String   @map("unit_type") @db.VarChar(50)
+  amountUsd         Decimal  @map("amount_usd") @db.Decimal(12, 6)
+  metadata          Json     @default("{}")
+  recordedAt        DateTime @default(now()) @map("recorded_at") @db.Timestamptz
+
+  workspace       Workspace        @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  project         Project?         @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  workerExecution WorkerExecution? @relation(fields: [workerExecutionId], references: [id], onDelete: SetNull)
+
+  @@index([workspaceId, recordedAt(sort: Desc)])
+  @@index([projectId, recordedAt(sort: Desc)])
+  @@map("cost_ledger")
+}

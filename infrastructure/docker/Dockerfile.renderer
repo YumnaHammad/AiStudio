@@ -1,0 +1,31 @@
+FROM node:20-bookworm AS base
+WORKDIR /app
+RUN apt-get update && apt-get install -y ffmpeg chromium fonts-liberation && rm -rf /var/lib/apt/lists/*
+
+FROM base AS deps
+COPY package.json package-lock.json ./
+COPY packages/shared/package.json ./packages/shared/
+COPY packages/database/package.json ./packages/database/
+COPY packages/rendering/package.json ./packages/rendering/
+COPY apps/renderer/package.json ./apps/renderer/
+RUN npm ci --workspace=@acs/renderer --include-workspace-root
+
+FROM base AS builder
+COPY --from=deps /app/node_modules ./node_modules
+COPY . .
+RUN npm run build --workspace=@acs/shared
+RUN npm run db:generate
+RUN npm run build --workspace=@acs/database
+RUN npm run build --workspace=@acs/rendering
+RUN npm run build --workspace=@acs/renderer
+
+FROM base AS runner
+ENV NODE_ENV=production
+WORKDIR /app
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/apps/renderer/dist ./apps/renderer/dist
+COPY --from=builder /app/apps/renderer/src/remotion ./apps/renderer/dist/remotion
+COPY --from=builder /app/apps/renderer/package.json ./apps/renderer/
+COPY --from=builder /app/packages ./packages
+COPY --from=builder /app/package.json ./
+CMD ["node", "apps/renderer/dist/main.js"]

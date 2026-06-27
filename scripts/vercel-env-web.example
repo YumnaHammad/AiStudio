@@ -1,0 +1,4 @@
+# Vercel Web project → Settings → Environment Variables
+# Or run: npm run deploy:vercel (sets this automatically)
+
+NEXT_PUBLIC_API_URL=https://your-api.vercel.app/api/v1

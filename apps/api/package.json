@@ -1,0 +1,53 @@
+{
+  "name": "@acs/api",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "build": "nest build",
+    "dev": "nest start --watch",
+    "start": "node dist/main.js",
+    "start:prod": "node dist/main.js",
+    "vercel-build": "cd ../.. && npm run build --workspace=@acs/shared && npm run generate --workspace=@acs/database && npm run build --workspace=@acs/database && npm run build --workspace=@acs/api",
+    "lint": "tsc -p tsconfig.build.json --noEmit"
+  },
+  "dependencies": {
+    "@acs/database": "*",
+    "@acs/shared": "*",
+    "@aws-sdk/client-s3": "^3.826.0",
+    "@aws-sdk/s3-request-presigner": "^3.826.0",
+    "@nestjs/common": "^11.1.3",
+    "@nestjs/config": "^4.0.2",
+    "@nestjs/core": "^11.1.3",
+    "@nestjs/jwt": "^11.0.0",
+    "@nestjs/passport": "^11.0.5",
+    "@nestjs/platform-express": "^11.1.3",
+    "@nestjs/platform-socket.io": "^11.1.3",
+    "@nestjs/swagger": "^11.2.0",
+    "@nestjs/terminus": "^11.0.0",
+    "@nestjs/throttler": "^6.4.0",
+    "@nestjs/websockets": "^11.1.3",
+    "@vendia/serverless-express": "^4.12.6",
+    "bcrypt": "^5.1.1",
+    "bullmq": "^5.53.2",
+    "class-transformer": "^0.5.1",
+    "class-validator": "^0.14.2",
+    "ioredis": "^5.6.1",
+    "passport": "^0.7.0",
+    "passport-jwt": "^4.0.1",
+    "reflect-metadata": "^0.2.2",
+    "rxjs": "^7.8.2",
+    "socket.io": "^4.8.1",
+    "uuid": "^11.1.0"
+  },
+  "devDependencies": {
+    "@nestjs/cli": "^11.0.7",
+    "@nestjs/schematics": "^11.0.5",
+    "@types/bcrypt": "^5.0.2",
+    "@types/express": "^5.0.3",
+    "@types/node": "^22.15.32",
+    "@types/passport-jwt": "^4.0.1",
+    "@types/uuid": "^10.0.0",
+    "@vercel/node": "^5.1.14",
+    "typescript": "^5.8.3"
+  }
+}

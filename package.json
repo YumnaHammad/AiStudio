@@ -1,0 +1,47 @@
+{
+  "name": "ai-content-studio",
+  "version": "1.0.0",
+  "private": true,
+  "description": "AI-powered content automation platform",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "build": "turbo run build",
+    "dev": "concurrently -k -n api,worker,renderer,web -c blue,green,yellow,magenta \"npm run api:dev\" \"npm run worker:dev\" \"npm run renderer:dev\" \"npm run web:dev\"",
+    "backend:dev": "concurrently -k -n api,worker,renderer -c blue,green,yellow \"npm run api:dev\" \"npm run worker:dev\" \"npm run renderer:dev\"",
+    "dev:turbo": "turbo run dev",
+    "lint": "turbo run lint",
+    "test": "turbo run test",
+    "db:generate": "dotenv -e .env -- npm run generate --workspace=@acs/database",
+    "db:migrate": "dotenv -e .env -- npm run migrate:dev --workspace=@acs/database",
+    "db:migrate:deploy": "dotenv -e .env -- npm run migrate:deploy --workspace=@acs/database",
+    "db:seed": "dotenv -e .env -- npm run seed --workspace=@acs/database",
+    "db:studio": "dotenv -e .env -- npm run studio --workspace=@acs/database",
+    "setup": "node scripts/setup.js",
+    "api:dev": "dotenv -e .env -- npm run dev --workspace=@acs/api",
+    "api:build": "npm run build --workspace=@acs/api",
+    "worker:dev": "dotenv -e .env -- npm run dev --workspace=@acs/worker",
+    "renderer:dev": "dotenv -e .env -- npm run dev --workspace=@acs/renderer",
+    "web:dev": "npm run dev --workspace=@acs/web",
+    "docker:infra": "docker compose -f infrastructure/docker/docker-compose.yml up -d",
+    "docker:prod": "docker compose -f infrastructure/docker/docker-compose.prod.yml up -d --build",
+    "format": "prettier --write \"**/*.{ts,tsx,json,md}\"",
+    "deploy:vercel": "powershell -ExecutionPolicy Bypass -File scripts/vercel-deploy.ps1",
+    "deploy:vercel:api": "powershell -ExecutionPolicy Bypass -File scripts/vercel-deploy.ps1 -ApiOnly",
+    "deploy:vercel:web": "powershell -ExecutionPolicy Bypass -File scripts/vercel-deploy.ps1 -WebOnly",
+    "deploy:migrate:prod": "dotenv -e .env -- npm run migrate:deploy --workspace=@acs/database"
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.3",
+    "dotenv-cli": "^8.0.0",
+    "prettier": "^3.5.3",
+    "turbo": "^2.5.4",
+    "typescript": "^5.8.3"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "packageManager": "npm@10.9.2"
+}

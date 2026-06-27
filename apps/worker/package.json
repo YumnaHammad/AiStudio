@@ -1,0 +1,26 @@
+{
+  "name": "@acs/worker",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "dev": "tsx watch src/main.ts",
+    "start": "node dist/main.js",
+    "lint": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@acs/ai-workers": "*",
+    "@acs/database": "*",
+    "@acs/providers": "*",
+    "@acs/shared": "*",
+    "bullmq": "^5.53.2",
+    "dotenv": "^16.5.0",
+    "ioredis": "^5.6.1",
+    "uuid": "^11.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.32",
+    "tsx": "^4.19.4",
+    "typescript": "^5.8.3"
+  }
+}

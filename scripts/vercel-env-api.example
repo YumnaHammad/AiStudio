@@ -1,0 +1,27 @@
+# Copy these into your Vercel API project → Settings → Environment Variables
+# Or run: npm run deploy:vercel (sets them automatically)
+
+NODE_ENV=production
+
+# Required — get from https://neon.tech (free Postgres)
+DATABASE_URL=postgresql://user:pass@ep-xxx.us-east-2.aws.neon.tech/neondb?sslmode=require
+
+# Required — get from https://upstash.com (free Redis, use rediss:// URL)
+REDIS_URL=rediss://default:xxx@xxx.upstash.io:6379
+
+# Auth (generate random 32+ char strings)
+JWT_ACCESS_SECRET=
+JWT_REFRESH_SECRET=
+JWT_ACCESS_EXPIRES_IN=15m
+JWT_REFRESH_EXPIRES_IN=7d
+ENCRYPTION_KEY=
+
+# URLs — set AFTER first deploy (deploy script does this automatically)
+APP_URL=https://your-frontend.vercel.app
+API_URL=https://your-api.vercel.app
+CORS_ORIGINS=https://your-frontend.vercel.app
+
+# AI keys (from your local .env)
+OPENAI_API_KEY=
+PEXELS_API_KEY=
+PIXABAY_API_KEY=
