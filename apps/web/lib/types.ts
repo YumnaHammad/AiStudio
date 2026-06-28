@@ -48,19 +48,20 @@ export type VideoStyle =
   | 'MOTIVATIONAL'
   | 'PODCAST';
 
+/** Matches API/database WorkerKey values (lowercase, hyphenated). */
 export const WORKER_PIPELINE_ORDER = [
-  'RESEARCH',
-  'FACT_CHECKER',
-  'SCRIPT',
-  'TRANSLATION',
-  'VOICE',
-  'SCENE_PLANNER',
-  'ASSET_FINDER',
-  'THUMBNAIL',
-  'SEO',
-  'PODCAST',
-  'SOCIAL_MEDIA',
-  'QUALITY_CHECK',
+  'research',
+  'fact-checker',
+  'script',
+  'translation',
+  'voice',
+  'scene-planner',
+  'asset-finder',
+  'thumbnail',
+  'seo',
+  'podcast',
+  'social-media',
+  'quality-check',
 ] as const;
 
 export type WorkerKey = (typeof WORKER_PIPELINE_ORDER)[number];

@@ -54,8 +54,8 @@ export function statusColor(status: string): string {
 
 export function workerLabel(key: string): string {
   return key
-    .split('_')
-    .map((w) => w.charAt(0) + w.slice(1).toLowerCase())
+    .split(/[_-]/)
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
     .join(' ');
 }
 

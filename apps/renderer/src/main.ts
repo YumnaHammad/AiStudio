@@ -13,7 +13,7 @@ import {
   parseRedisConnection,
   resolveLocalMediaPath,
   localMediaExists,
-  saveLocalMedia,
+  persistMedia,
 } from '@acs/shared';
 import { buildTimeline } from '@acs/rendering';
 import type { RenderVariationSelections } from '@acs/shared';
@@ -21,6 +21,18 @@ import { execSync } from 'child_process';
 import fs from 'fs';
 import os from 'os';
 import { localMediaHttpUrl, startLocalMediaServer } from './local-media-server';
+
+/** Remotion bundler needs TS/TSX sources, not compiled JS in dist. */
+function resolveRemotionEntry(): string {
+  const candidates = [
+    path.join(__dirname, 'remotion', 'index.ts'),
+    path.join(__dirname, '..', 'src', 'remotion', 'index.ts'),
+  ];
+  for (const entry of candidates) {
+    if (fs.existsSync(entry)) return entry;
+  }
+  throw new Error(`Remotion entry not found. Checked: ${candidates.join(', ')}`);
+}
 
 async function renderVideo(
   prisma: PrismaClient,
@@ -91,7 +103,7 @@ async function renderVideo(
     data: { timelineJson: timeline as object },
   });
 
-  const entryPoint = path.join(__dirname, 'remotion', 'index.ts');
+  const entryPoint = resolveRemotionEntry();
   const bundleLocation = await bundle({ entryPoint, webpackOverride: (c) => c });
   const composition = await selectComposition({
     serveUrl: bundleLocation,
@@ -131,7 +143,7 @@ async function renderVideo(
   const r2PathOptimized = `${R2_PATH_PREFIX.VIDEO_OPTIMIZED}/${payload.projectId}/${payload.videoId}.mp4`;
 
   const optimizedBuffer = fs.readFileSync(optimizedOutput);
-  saveLocalMedia(r2PathOptimized, optimizedBuffer);
+  await persistMedia(r2PathOptimized, optimizedBuffer, 'video/mp4');
 
   await prisma.video.update({
     where: { id: payload.videoId },

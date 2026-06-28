@@ -33,7 +33,9 @@
     "deploy:vercel:web": "powershell -ExecutionPolicy Bypass -File scripts/vercel-deploy.ps1 -WebOnly",
     "deploy:migrate:prod": "dotenv -e .env -- npm run migrate:deploy --workspace=@acs/database",
     "pipeline:dev": "concurrently -k -n worker,renderer -c green,yellow \"npm run worker:dev\" \"npm run renderer:dev\"",
-    "pipeline:prod": "concurrently -k -n worker,renderer -c green,yellow \"dotenv -e .env -- npm run start --workspace=@acs/worker\" \"dotenv -e .env -- npm run start --workspace=@acs/renderer\""
+    "pipeline:prod": "concurrently -k -n worker,renderer -c green,yellow \"dotenv -e .env -- npm run start --workspace=@acs/worker\" \"dotenv -e .env -- npm run start --workspace=@acs/renderer\"",
+    "sync:media:r2": "dotenv -e .env -- node scripts/sync-media-to-r2.mjs",
+    "deploy:cloud": "powershell -ExecutionPolicy Bypass -File scripts/deploy-cloud.ps1"
   },
   "devDependencies": {
     "concurrently": "^9.2.3",

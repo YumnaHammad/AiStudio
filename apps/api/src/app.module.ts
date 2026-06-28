@@ -36,8 +36,7 @@ import { HealthModule } from './modules/health/health.module';
     AppConfigModule,
     CommonModule,
     ThrottlerModule.forRoot([
-      { name: 'default', ttl: 60000, limit: 100 },
-      { name: 'auth', ttl: 60000, limit: 10 },
+      { name: 'default', ttl: 60000, limit: 300 },
     ]),
     DatabaseModule,
     RedisModule,

@@ -1,5 +1,5 @@
 import { PrismaClient, LogLevel, WorkerStatus, Prisma } from '@acs/database';
-import { WorkerKey, R2_PATH_PREFIX, saveLocalMedia } from '@acs/shared';
+import { WorkerKey, R2_PATH_PREFIX, persistMedia } from '@acs/shared';
 import { WorkerResult } from '@acs/ai-workers';
 
 export class ArtifactPersister {
@@ -73,7 +73,11 @@ export class ArtifactPersister {
         const r2Path = `${R2_PATH_PREFIX.VOICE}/${projectId}/v${version}.mp3`;
         const audioBase64 = artifact.audioBase64 as string | undefined;
         if (audioBase64) {
-          saveLocalMedia(r2Path, Buffer.from(audioBase64, 'base64'));
+          await persistMedia(
+            r2Path,
+            Buffer.from(audioBase64, 'base64'),
+            'audio/mpeg',
+          );
         }
         await this.prisma.voiceArtifact.create({
           data: {
@@ -161,7 +165,11 @@ export class ArtifactPersister {
         const r2Path = `${R2_PATH_PREFIX.THUMBNAIL}/${projectId}/v${version}.png`;
         const imageBase64 = artifact.imageBase64 as string | undefined;
         if (imageBase64) {
-          saveLocalMedia(r2Path, Buffer.from(imageBase64, 'base64'));
+          await persistMedia(
+            r2Path,
+            Buffer.from(imageBase64, 'base64'),
+            'image/png',
+          );
         }
         await this.prisma.thumbnailArtifact.create({
           data: {

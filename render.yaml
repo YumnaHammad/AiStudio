@@ -1,3 +1,10 @@
+# Full cloud deployment — AI Content Studio
+#
+# Vercel  = Web + API only (already deployed)
+# Render  = Worker + Renderer (video generation) — REQUIRED
+# Neon    = Database (already configured)
+# Upstash = Redis queues (already configured)
+# R2      = Video/audio file storage (REQUIRED for Vercel playback)
 
 services:
   - type: worker
@@ -23,6 +30,9 @@ services:
         value: 'true'
       - key: OPENAI_MODEL
         value: gpt-4o-mini
+      - key: R2_BUCKET_NAME
+        value: ai-content-studio
+      # Paste these in Render dashboard when creating the blueprint:
       - key: DATABASE_URL
         sync: false
       - key: REDIS_URL
@@ -34,6 +44,14 @@ services:
       - key: PEXELS_API_KEY
         sync: false
       - key: PIXABAY_API_KEY
+        sync: false
+      - key: R2_ACCOUNT_ID
+        sync: false
+      - key: R2_ACCESS_KEY_ID
+        sync: false
+      - key: R2_SECRET_ACCESS_KEY
+        sync: false
+      - key: R2_PUBLIC_URL
         sync: false
     disk:
       name: pipeline-media

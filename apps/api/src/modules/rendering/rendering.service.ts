@@ -2,7 +2,7 @@ import { Injectable, BadRequestException, NotFoundException } from '@nestjs/comm
 import { v4 as uuidv4 } from 'uuid';
 import fs from 'fs';
 import type { Response, Request } from 'express';
-import { QueueName, localMediaExists, saveLocalMedia, resolveLocalMediaPath } from '@acs/shared';
+import { QueueName, localMediaExists, persistMedia, resolveLocalMediaPath, objectExists, getObjectSignedUrl, getObjectPublicUrl, isObjectStorageConfigured } from '@acs/shared';
 import { ProjectStatus, VideoStatus, WorkflowStatus, Prisma } from '@acs/database';
 import { PrismaService } from '../../database/prisma.service';
 import { QueueService } from '../../queue/queue.service';
@@ -182,9 +182,25 @@ export class RenderingService {
     if (!video) throw new NotFoundException('Video not found');
 
     const mediaKey = video.r2PathOptimized ?? video.r2PathRaw;
-    if (!mediaKey || !localMediaExists(mediaKey)) {
+    if (!mediaKey) {
+      throw new NotFoundException('Video file path not set. Click Retry render.');
+    }
+
+    const publicUrl = getObjectPublicUrl(mediaKey);
+    if (publicUrl) {
+      res.redirect(302, publicUrl);
+      return;
+    }
+
+    if (isObjectStorageConfigured() && (await objectExists(mediaKey))) {
+      const signedUrl = await getObjectSignedUrl(mediaKey);
+      res.redirect(302, signedUrl);
+      return;
+    }
+
+    if (!localMediaExists(mediaKey)) {
       throw new NotFoundException(
-        'Video file not found on disk. Click Retry render to regenerate it.',
+        'Video is not in cloud storage yet. Configure R2 on Vercel, run the pipeline locally, then click Retry render.',
       );
     }
 
@@ -227,6 +243,21 @@ export class RenderingService {
 
     if (localMediaExists(voice.r2Path)) return;
 
+    if (isObjectStorageConfigured() && (await objectExists(voice.r2Path))) {
+      return;
+    }
+
+    if (process.env.VERCEL === '1') {
+      const voiceWorker = await this.prisma.workerExecution.findFirst({
+        where: {
+          workerKey: 'voice',
+          status: 'COMPLETED',
+          workflowExecution: { projectId },
+        },
+      });
+      if (voiceWorker) return;
+    }
+
     const recovered = await this.recoverVoiceFromWorkerOutput(projectId, voice.r2Path);
     if (recovered) return;
 
@@ -261,7 +292,7 @@ export class RenderingService {
       return false;
     }
 
-    saveLocalMedia(r2Path, Buffer.from(audioBase64, 'base64'));
+    await persistMedia(r2Path, Buffer.from(audioBase64, 'base64'), 'audio/mpeg');
     return true;
   }
 

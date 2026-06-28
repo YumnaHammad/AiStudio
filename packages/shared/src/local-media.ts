@@ -34,6 +34,13 @@ export function resolveMonorepoRoot(): string {
 }
 
 function resolveMediaDir(configured: string | undefined): string {
+  if (process.env.VERCEL === '1' || process.env.AWS_LAMBDA_FUNCTION_NAME) {
+    if (configured && path.isAbsolute(configured)) {
+      return configured;
+    }
+    return '/tmp/data/media';
+  }
+
   if (!configured) {
     return path.join(resolveMonorepoRoot(), 'data', 'media');
   }
@@ -43,15 +50,23 @@ function resolveMediaDir(configured: string | undefined): string {
   return path.join(resolveMonorepoRoot(), configured);
 }
 
+function mediaRoot(): string {
+  return resolveMediaDir(process.env.LOCAL_MEDIA_DIR);
+}
+
 /** Root folder for dev media when Cloudflare R2 is not configured */
 export function getLocalMediaRoot(): string {
-  const root = resolveMediaDir(process.env.LOCAL_MEDIA_DIR);
-  fs.mkdirSync(root, { recursive: true });
+  const root = mediaRoot();
+  try {
+    fs.mkdirSync(root, { recursive: true });
+  } catch {
+    // Serverless filesystem may be read-only outside /tmp
+  }
   return root;
 }
 
 export function resolveLocalMediaPath(relativePath: string): string {
-  return path.join(getLocalMediaRoot(), relativePath.replace(/\\/g, '/'));
+  return path.join(mediaRoot(), relativePath.replace(/\\/g, '/'));
 }
 
 export function saveLocalMedia(relativePath: string, data: Buffer): string {
