@@ -1,0 +1,37 @@
+# Worker + renderer (shared /data/media volume required for voice → video)
+FROM node:20-bookworm AS base
+WORKDIR /app
+RUN apt-get update \
+  && apt-get install -y ffmpeg chromium fonts-liberation \
+  && rm -rf /var/lib/apt/lists/*
+ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
+ENV REMOTION_BROWSER_EXECUTABLE=/usr/bin/chromium
+
+FROM base AS builder
+COPY . .
+RUN npm ci --include=dev \
+  && npm run build --workspace=@acs/shared \
+  && npm run generate --workspace=@acs/database \
+  && npm run build --workspace=@acs/database \
+  && npm run build --workspace=@acs/providers \
+  && npm run build --workspace=@acs/ai-workers \
+  && npm run build --workspace=@acs/rendering \
+  && npm run build --workspace=@acs/worker \
+  && npm run build --workspace=@acs/renderer
+
+FROM base AS runner
+ENV NODE_ENV=production
+ENV LOCAL_MEDIA_DIR=/data/media
+ENV LOCAL_MEDIA_PORT=3001
+WORKDIR /app
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/apps/worker/dist ./apps/worker/dist
+COPY --from=builder /app/apps/worker/package.json ./apps/worker/
+COPY --from=builder /app/apps/renderer/dist ./apps/renderer/dist
+COPY --from=builder /app/apps/renderer/src/remotion ./apps/renderer/dist/remotion
+COPY --from=builder /app/apps/renderer/package.json ./apps/renderer/
+COPY --from=builder /app/packages ./packages
+COPY --from=builder /app/package.json ./
+COPY infrastructure/docker/start-pipeline.sh ./start-pipeline.sh
+RUN chmod +x ./start-pipeline.sh && mkdir -p /data/media
+CMD ["./start-pipeline.sh"]

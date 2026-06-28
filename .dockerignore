@@ -1,0 +1,16 @@
+node_modules
+**/node_modules
+.git
+.next
+dist
+**/dist
+data
+.env
+.env.*
+*.log
+.turbo
+.vercel
+coverage
+.cursor
+terminals
+**/.DS_Store

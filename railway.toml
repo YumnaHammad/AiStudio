@@ -1,0 +1,12 @@
+[build]
+builder = "DOCKERFILE"
+dockerfilePath = "infrastructure/docker/Dockerfile.pipeline"
+
+[deploy]
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 10
+
+# Attach a volume so voice/media files survive restarts (Railway dashboard → Volumes → /data/media)
+# Required env vars (set in Railway → Variables):
+# DATABASE_URL, REDIS_URL, ENCRYPTION_KEY, OPENAI_API_KEY, PEXELS_API_KEY, PIXABAY_API_KEY
+# LOCAL_MEDIA_DIR=/data/media, LOCAL_MEDIA_PORT=3001, COST_SAVER_MODE=true, COST_SAVER_AUTO_APPROVE=true

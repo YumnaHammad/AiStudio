@@ -5,7 +5,6 @@ import { ExpressAdapter } from '@nestjs/platform-express';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import serverlessExpress from '@vendia/serverless-express';
 import express from 'express';
-import type { Handler } from 'express';
 import { AppModule } from './app.module';
 import { GlobalExceptionFilter } from './common/filters/global-exception.filter';
 import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
@@ -14,9 +13,13 @@ import { LoggerService } from './common/services/logger.service';
 import { API_PREFIX } from '@acs/shared';
 import { resolveCorsOrigins } from './config/cors.util';
 
-type ServerlessHandler = Handler;
+type RequestHandler = (
+  req: express.Request,
+  res: express.Response,
+  next?: (err?: unknown) => void,
+) => void;
 
-let cachedServer: ServerlessHandler | undefined;
+let cachedHandler: RequestHandler | undefined;
 
 function configureBigIntJson(): void {
   if (!Object.getOwnPropertyDescriptor(BigInt.prototype, 'toJSON')) {
@@ -101,11 +104,15 @@ export async function createApp(
   return app;
 }
 
-export async function getServerlessHandler(): Promise<ServerlessHandler> {
-  if (!cachedServer) {
+export async function getServerlessHandler(): Promise<RequestHandler> {
+  if (!cachedHandler) {
     const expressApp = express();
     await createApp(expressApp);
-    cachedServer = serverlessExpress({ app: expressApp }) as ServerlessHandler;
+    if (process.env.VERCEL === '1') {
+      cachedHandler = expressApp;
+    } else {
+      cachedHandler = serverlessExpress({ app: expressApp }) as RequestHandler;
+    }
   }
-  return cachedServer;
+  return cachedHandler;
 }

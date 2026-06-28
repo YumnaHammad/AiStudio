@@ -63,3 +63,12 @@ export function getWsBaseUrl(): string {
   const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000/api/v1';
   return apiUrl.replace(/\/api\/v\d+\/?$/, '');
 }
+
+/** Socket.IO is unavailable on Vercel serverless; use HTTP polling instead. */
+export function isWebSocketsEnabled(): boolean {
+  const flag = process.env.NEXT_PUBLIC_ENABLE_WEBSOCKETS;
+  if (flag === 'true') return true;
+  if (flag === 'false') return false;
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? '';
+  return !apiUrl.includes('.vercel.app');
+}

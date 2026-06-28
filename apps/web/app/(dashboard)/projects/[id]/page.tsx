@@ -31,7 +31,13 @@ export default function ProjectDetailPage({
   const { data: project, isLoading, error } = useQuery({
     queryKey: ['projects', id],
     queryFn: () => apiClient.projects.get(id),
-    refetchInterval: 15_000,
+    refetchInterval: (query) => {
+      const status = query.state.data?.status;
+      if (['RUNNING', 'RENDERING', 'PUBLISHING'].includes(status ?? '')) {
+        return 5_000;
+      }
+      return 15_000;
+    },
   });
 
   const approveMutation = useMutation({
@@ -297,6 +303,24 @@ export default function ProjectDetailPage({
                   </p>
                 )}
               </dl>
+            </Card>
+          )}
+
+          {project.status === 'RUNNING' &&
+            workers.length > 0 &&
+            workers.every((w) => w.status === 'PENDING' || w.status === 'QUEUED') && (
+            <Card className="border-amber-500/30">
+              <div className="flex items-start gap-3">
+                <Pause className="h-5 w-5 shrink-0 text-amber-400" />
+                <div>
+                  <p className="text-sm font-medium text-amber-200">Waiting for worker service</p>
+                  <p className="mt-1 text-xs text-zinc-400">
+                    The API queued this job, but no worker is running to process it. Deploy the
+                    worker and renderer (e.g. on Render or Railway) and point them at the same
+                    Neon database and Upstash Redis as production.
+                  </p>
+                </div>
+              </div>
             </Card>
           )}
 

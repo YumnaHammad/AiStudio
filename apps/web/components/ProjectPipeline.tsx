@@ -11,6 +11,7 @@ import {
   RotateCcw,
   Wifi,
   WifiOff,
+  RefreshCw,
 } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardDescription } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
@@ -73,7 +74,7 @@ export function ProjectPipeline({
   onRetry,
   retrying,
 }: ProjectPipelineProps) {
-  const { connected, workerUpdates, workflowUpdate, renderProgress } =
+  const { realtimeMode, workerUpdates, workflowUpdate, renderProgress } =
     useProjectWebSocket(projectId);
 
   const workerMap = useMemo(() => {
@@ -94,10 +95,15 @@ export function ProjectPipeline({
             </CardDescription>
           </div>
           <div className="flex shrink-0 items-center gap-1.5 text-xs text-zinc-500">
-            {connected ? (
+            {realtimeMode === 'live' ? (
               <>
                 <Wifi className="h-3.5 w-3.5 text-emerald-400" />
                 Live
+              </>
+            ) : realtimeMode === 'polling' ? (
+              <>
+                <RefreshCw className="h-3.5 w-3.5 text-zinc-400" />
+                Auto-refresh
               </>
             ) : (
               <>

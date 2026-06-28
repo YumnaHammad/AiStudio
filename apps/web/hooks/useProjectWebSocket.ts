@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { io, Socket } from 'socket.io-client';
 import { useAuthStore } from '@/lib/auth-store';
-import { getWsBaseUrl } from '@/lib/utils';
+import { getWsBaseUrl, isWebSocketsEnabled } from '@/lib/utils';
 import type {
   RenderProgressEvent,
   WorkerStatusEvent,
@@ -12,6 +12,7 @@ import type {
 
 interface ProjectWebSocketState {
   connected: boolean;
+  realtimeMode: 'live' | 'polling' | 'connecting';
   workerUpdates: Record<string, WorkerStatusEvent>;
   workflowUpdate: WorkflowStepEvent | null;
   renderProgress: RenderProgressEvent | null;
@@ -19,8 +20,10 @@ interface ProjectWebSocketState {
 
 export function useProjectWebSocket(projectId: string | undefined) {
   const socketRef = useRef<Socket | null>(null);
+  const websocketsEnabled = isWebSocketsEnabled();
   const [state, setState] = useState<ProjectWebSocketState>({
     connected: false,
+    realtimeMode: websocketsEnabled ? 'connecting' : 'polling',
     workerUpdates: {},
     workflowUpdate: null,
     renderProgress: null,
@@ -29,14 +32,15 @@ export function useProjectWebSocket(projectId: string | undefined) {
   const reset = useCallback(() => {
     setState({
       connected: false,
+      realtimeMode: websocketsEnabled ? 'connecting' : 'polling',
       workerUpdates: {},
       workflowUpdate: null,
       renderProgress: null,
     });
-  }, []);
+  }, [websocketsEnabled]);
 
   useEffect(() => {
-    if (!projectId) return;
+    if (!projectId || !websocketsEnabled) return;
 
     const wsUrl = getWsBaseUrl();
     const socket = io(`${wsUrl}/realtime`, {
@@ -47,12 +51,12 @@ export function useProjectWebSocket(projectId: string | undefined) {
     socketRef.current = socket;
 
     socket.on('connect', () => {
-      setState((prev) => ({ ...prev, connected: true }));
+      setState((prev) => ({ ...prev, connected: true, realtimeMode: 'live' }));
       socket.emit('subscribe:project', { projectId });
     });
 
     socket.on('disconnect', () => {
-      setState((prev) => ({ ...prev, connected: false }));
+      setState((prev) => ({ ...prev, connected: false, realtimeMode: 'connecting' }));
     });
 
     socket.on('worker:status', (data: WorkerStatusEvent) => {
@@ -82,7 +86,7 @@ export function useProjectWebSocket(projectId: string | undefined) {
       socketRef.current = null;
       reset();
     };
-  }, [projectId, reset]);
+  }, [projectId, reset, websocketsEnabled]);
 
   return state;
 }
@@ -94,7 +98,7 @@ export function useWorkspaceWebSocket() {
   const [connected, setConnected] = useState(false);
 
   useEffect(() => {
-    if (!workspaceId) return;
+    if (!workspaceId || !isWebSocketsEnabled()) return;
 
     const wsUrl = getWsBaseUrl();
     const socket = io(`${wsUrl}/realtime`, {

@@ -4,7 +4,7 @@ import path from 'path';
 loadEnv({ path: path.resolve(__dirname, '../../../.env') });
 loadEnv();
 import { PrismaClient, ProjectStatus, VideoStatus, WorkflowStatus } from '@acs/database';
-import { Worker, Job, ConnectionOptions } from 'bullmq';
+import { Worker, Job } from 'bullmq';
 import { bundle } from '@remotion/bundler';
 import { renderMedia, selectComposition } from '@remotion/renderer';
 import {
@@ -49,7 +49,6 @@ async function renderVideo(
     },
   });
 
-  const script = video.project.scriptArtifacts[0];
   const voice = video.project.voiceArtifacts[0];
   const scenePlan = video.project.scenePlans[0];
   const selections = video.renderConfig!.selections as unknown as RenderVariationSelections;
