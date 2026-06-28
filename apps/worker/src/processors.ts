@@ -7,6 +7,7 @@ import {
   QueueName,
   resolveWorkerProvider,
   resolvePipelineOrder,
+  BULLMQ_WORKER_OPTIONS,
 } from '@acs/shared';
 import { getWorker } from '@acs/ai-workers';
 import { loadWorkerContext } from './context-loader';
@@ -131,7 +132,7 @@ export function createAiWorkerProcessors(
           throw error;
         }
       },
-      { connection, concurrency: 2 },
+      { connection, concurrency: 2, ...BULLMQ_WORKER_OPTIONS },
     );
 
     worker.on('failed', (job, err) => {
@@ -238,6 +239,6 @@ export function createOrchestratorCompleteProcessor(
 
       await dispatchQueue.close();
     },
-    { connection, concurrency: 5 },
+    { connection, concurrency: 5, ...BULLMQ_WORKER_OPTIONS },
   );
 }

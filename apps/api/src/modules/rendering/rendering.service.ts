@@ -186,29 +186,38 @@ export class RenderingService {
       throw new NotFoundException('Video file path not set. Click Retry render.');
     }
 
-    const publicUrl = getObjectPublicUrl(mediaKey);
-    if (publicUrl) {
-      res.redirect(302, publicUrl);
+    if (localMediaExists(mediaKey)) {
+      this.streamLocalFile(mediaKey, video.mimeType, req, res);
       return;
     }
 
     if (isObjectStorageConfigured() && (await objectExists(mediaKey))) {
+      const publicUrl = getObjectPublicUrl(mediaKey);
+      if (publicUrl) {
+        res.redirect(302, publicUrl);
+        return;
+      }
       const signedUrl = await getObjectSignedUrl(mediaKey);
       res.redirect(302, signedUrl);
       return;
     }
 
-    if (!localMediaExists(mediaKey)) {
-      throw new NotFoundException(
-        'Video is not in cloud storage yet. Configure R2 on Vercel, run the pipeline locally, then click Retry render.',
-      );
-    }
+    throw new NotFoundException(
+      'Video file not found. Click Retry render to regenerate it.',
+    );
+  }
 
+  private streamLocalFile(
+    mediaKey: string,
+    mimeType: string | null,
+    req: Request,
+    res: Response,
+  ): void {
     const filePath = resolveLocalMediaPath(mediaKey);
     const stat = fs.statSync(filePath);
     const fileSize = stat.size;
 
-    res.setHeader('Content-Type', video.mimeType ?? 'video/mp4');
+    res.setHeader('Content-Type', mimeType ?? 'video/mp4');
     res.setHeader('Accept-Ranges', 'bytes');
 
     const range = req.headers.range;

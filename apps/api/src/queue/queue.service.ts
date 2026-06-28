@@ -1,6 +1,6 @@
 import { Injectable, OnModuleDestroy } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { Queue, QueueEvents } from 'bullmq';
+import { Queue } from 'bullmq';
 import { QueueName, parseRedisConnection, type RedisConnectionOptions } from '@acs/shared';
 
 const ALL_QUEUES: QueueName[] = Object.values(QueueName);
@@ -8,7 +8,6 @@ const ALL_QUEUES: QueueName[] = Object.values(QueueName);
 @Injectable()
 export class QueueService implements OnModuleDestroy {
   private readonly queues = new Map<string, Queue>();
-  private readonly queueEvents = new Map<string, QueueEvents>();
   private readonly connection: RedisConnectionOptions;
 
   constructor(private readonly configService: ConfigService) {
@@ -20,16 +19,13 @@ export class QueueService implements OnModuleDestroy {
       const queue = new Queue(name, {
         connection: this.connection,
         defaultJobOptions: {
-          removeOnComplete: { count: 1000 },
-          removeOnFail: { count: 5000 },
+          removeOnComplete: { count: 100 },
+          removeOnFail: { count: 200 },
           attempts: 3,
           backoff: { type: 'exponential', delay: 5000 },
         },
       });
       this.queues.set(name, queue);
-
-      const events = new QueueEvents(name, { connection: this.connection });
-      this.queueEvents.set(name, events);
     }
   }
 
@@ -43,14 +39,6 @@ export class QueueService implements OnModuleDestroy {
       throw new Error(`Queue not found: ${name}`);
     }
     return queue;
-  }
-
-  getQueueEvents(name: QueueName | string): QueueEvents {
-    const events = this.queueEvents.get(name);
-    if (!events) {
-      throw new Error(`Queue events not found: ${name}`);
-    }
-    return events;
   }
 
   getAllQueueNames(): string[] {
@@ -77,9 +65,6 @@ export class QueueService implements OnModuleDestroy {
   }
 
   async onModuleDestroy(): Promise<void> {
-    await Promise.all([
-      ...[...this.queues.values()].map((q) => q.close()),
-      ...[...this.queueEvents.values()].map((e) => e.close()),
-    ]);
+    await Promise.all([...this.queues.values()].map((q) => q.close()));
   }
 }

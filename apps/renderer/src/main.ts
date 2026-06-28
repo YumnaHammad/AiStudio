@@ -11,6 +11,7 @@ import {
   QueueName,
   R2_PATH_PREFIX,
   parseRedisConnection,
+  BULLMQ_WORKER_OPTIONS,
   resolveLocalMediaPath,
   localMediaExists,
   persistMedia,
@@ -222,7 +223,7 @@ async function main() {
         throw error;
       }
     },
-    { connection, concurrency: 1 },
+    { connection, concurrency: 1, ...BULLMQ_WORKER_OPTIONS },
   );
 
   worker.on('failed', (job, err) => {

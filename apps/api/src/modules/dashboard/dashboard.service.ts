@@ -18,14 +18,16 @@ export class DashboardService {
 
     const [
       todayCost,
-      queueStats,
+      renderingQueue,
+      uploadQueue,
       activeWorkers,
       recentProjects,
       projectCounts,
       recentActivity,
     ] = await Promise.all([
       this.costTracker.getTodayCost(workspaceId),
-      this.queueService.getAllQueueStats(),
+      this.queueService.getQueueStats('render-video'),
+      this.queueService.getQueueStats('upload-r2'),
       this.prisma.workerExecution.count({
         where: {
           status: { in: [WorkerStatus.RUNNING, WorkerStatus.QUEUED] },
@@ -60,15 +62,12 @@ export class DashboardService {
       }),
     ]);
 
-    const renderingQueue = queueStats.find((q) => q.name === 'render-video');
-    const uploadQueue = queueStats.find((q) => q.name === 'upload-r2');
-
     return {
       todayCost,
       activeAiJobs: activeWorkers,
       renderingQueue: renderingQueue ?? { waiting: 0, active: 0 },
       uploadQueue: uploadQueue ?? { waiting: 0, active: 0 },
-      queues: queueStats,
+      queues: [renderingQueue, uploadQueue].filter(Boolean),
       recentProjects,
       projectCounts: Object.fromEntries(
         projectCounts.map((p) => [p.status, p._count]),

@@ -21,14 +21,14 @@ export default function QueuesPage() {
   const { data: queues, isLoading, error } = useQuery({
     queryKey: ['queues'],
     queryFn: () => apiClient.queues.list(),
-    refetchInterval: 10_000,
+    refetchInterval: 30_000,
   });
 
   const { data: jobs, isLoading: jobsLoading } = useQuery({
     queryKey: ['queues', selectedQueue, jobStatus],
     queryFn: () => apiClient.queues.jobs(selectedQueue!, jobStatus),
     enabled: !!selectedQueue,
-    refetchInterval: 5_000,
+    refetchInterval: 15_000,
   });
 
   const cancelMutation = useMutation({

@@ -29,8 +29,17 @@ export function VideoPlayer({ projectId, videoId, topic }: VideoPlayerProps) {
           `${BASE_URL}/projects/${projectId}/videos/${videoId}/stream`,
           {
             headers: token ? { Authorization: `Bearer ${token}` } : {},
+            redirect: 'manual',
           },
         );
+
+        if (res.status === 301 || res.status === 302) {
+          const location = res.headers.get('Location');
+          if (!location) throw new Error('Video redirect missing location');
+          if (cancelled) return;
+          setUrl(location);
+          return;
+        }
 
         if (!res.ok) {
           const json = await res.json().catch(() => null);
